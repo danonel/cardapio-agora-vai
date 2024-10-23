@@ -1,5 +1,5 @@
 // Cart.tsx
-import React from "react";
+import React, { useMemo } from "react";
 import {
   List,
   ListItem,
@@ -7,6 +7,7 @@ import {
   IconButton,
   Typography,
   Drawer,
+  Box,
 } from "@mui/material";
 import { useCart } from "../../providers/CartProvider";
 import {
@@ -30,6 +31,12 @@ export const Cart: React.FC = () => {
   } = useCart();
 
   const tableId = sessionStorage.getItem("tableId");
+
+  const cartQuantityAmount = useMemo(
+    () => cart.reduce((acc, { quantity }) => acc + quantity, 0),
+    [cart]
+  );
+
   if (!tableId) return;
 
   const handleOrder = () => {
@@ -41,18 +48,19 @@ export const Cart: React.FC = () => {
     const orderData: OrderData = {
       tableId: tableId,
       items: cart.map(({ item, quantity }) => ({
-        id: item.id,
+        id: item.id, // Assuming this is the correct field for the item ID
         quantity: quantity,
-        item: item,
       })),
     };
 
     OrderService.registerOrder(orderData)
       .then(() => {
+        alert("Order placed successfully!"); // Notify the user of success
         handleClearCart();
       })
       .catch((error) => {
         console.error("Error placing order:", error);
+        alert("Failed to place order. Please try again."); // Notify the user of the error
       });
   };
 
@@ -75,9 +83,22 @@ export const Cart: React.FC = () => {
   return (
     <>
       <IconButton onClick={toggleCart}>
-        <span role="img" aria-label="cart">
+        <Box sx={{ position: "relative" }}>
           🛒
-        </span>
+          {cartQuantityAmount > 0 && (
+            <Box
+              sx={{
+                position: "absolute",
+                bottom: -2,
+                left: 15,
+                color: "red",
+                fontSize: "12px",
+              }}
+            >
+              {cartQuantityAmount}
+            </Box>
+          )}
+        </Box>
       </IconButton>
       <Drawer anchor="right" open={isOpen} onClose={toggleCart}>
         <div

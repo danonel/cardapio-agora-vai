@@ -2,6 +2,7 @@ import { RouteObject } from "react-router-dom";
 import { Home } from "../pages/home";
 import { Table } from "../pages/table";
 import Layout from "../common/layout/BaseLayout";
+import Kitchen from "../pages/kitchen";
 
 const routes: RouteObject[] = [
   {
@@ -17,6 +18,10 @@ const routes: RouteObject[] = [
         element: <Table />,
       },
     ],
+  },
+  {
+    path: "/kitchen",
+    element: <Kitchen />,
   },
 ];
 

@@ -1,7 +1,8 @@
 import knex, { Knex } from "knex";
-import sqlite3, { Database, OPEN_CREATE, OPEN_READONLY } from "sqlite3";
+import sqlite3 from "sqlite3";
 import { Table } from "./table";
 import { TItem } from "./item";
+import { EOrderStatus, TOrder, TOrderWithItems } from "./modules/orders/order";
 
 sqlite3.verbose();
 
@@ -25,6 +26,19 @@ export class CardapioDatabase {
 
   async close() {
     await this.client.destroy();
+  }
+
+  async updateTableMembers(tableId: string, members: string[]): Promise<void> {
+    const existingTable = await this.client("tables")
+      .where({ id: tableId })
+      .first();
+    if (!existingTable) {
+      throw new Error("Table not found");
+    }
+
+    await this.client("tables")
+      .where({ id: tableId })
+      .update({ members: JSON.stringify(members) });
   }
 
   static getInstance(): CardapioDatabase {
@@ -92,4 +106,62 @@ export class CardapioDatabase {
       throw error;
     }
   }
+
+  async getOrdersByTableId(tableId: string): Promise<TOrderWithItems[]> {
+    const orders = await this.client("orders")
+      .where({ table_id: tableId })
+      .select("*");
+
+    if (!orders) {
+      return [];
+    }
+
+    const ordersWithItems = await Promise.all(
+      orders.map(async (order) => {
+        const items = await this.client("order_items")
+          .where({ order_id: order.id })
+          .join("items", "order_items.item_id", "=", "items.id")
+          .select(
+            "items.id",
+            "items.name",
+            "order_items.quantity",
+            "items.price"
+          );
+
+        return {
+          id: order.id,
+          tableId: order.table_id,
+          status: order.status,
+          createdAt: order.created_at,
+          items, // Include items related to this order
+        };
+      })
+    );
+
+    return ordersWithItems;
+  }
+
+  async updateOrderStatus(
+    orderId: number,
+    newStatus: EOrderStatus
+  ): Promise<void> {
+    const validStatuses = Object.values(EOrderStatus);
+    if (!validStatuses.includes(newStatus)) {
+      throw new Error(
+        `Invalid status: ${newStatus}. Valid statuses are: ${validStatuses.join(
+          ", "
+        )}`
+      );
+    }
+
+    const updatedRows = await this.client("orders")
+      .where({ id: orderId })
+      .update({ status: newStatus });
+
+    if (updatedRows === 0) {
+      throw new Error("Order not found or no change made");
+    }
+  }
 }
+
+export const client = CardapioDatabase.getInstance();
